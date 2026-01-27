@@ -1,16 +1,23 @@
 import { createContext, useContext } from 'react';
-import type { Bus, UserRole, Alert } from '../types';
+import type { Bus, UserRole, Alert, BusRoute } from '../types';
+import type { User } from 'firebase/auth';
 
 interface BusContextType {
   buses: Bus[];
+  routes: BusRoute[];
   userRole: UserRole;
-  setUserRole: (role: UserRole) => void;
+  user: User | null;
+  authReady: boolean;
+  firebaseEnabled: boolean;
   alerts: Alert[];
   startTrip: (busId: string) => void;
   updateSeats: (busId: string, count: number) => void;
   reportEmergency: (busId: string, type: 'breakdown' | 'weather') => void;
   resumeTrip: (busId: string) => void;
   stopTrip: (busId: string) => void;
+  addRoute: (route: BusRoute) => void;
+  signIn: (email: string, password: string) => Promise<void>;
+  signOut: () => Promise<void>;
   userBusId: string; // The bus assigned to the driver role
 }
 

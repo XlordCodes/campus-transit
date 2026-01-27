@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { useBus } from '../context/BusContext';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import { AlertTriangle, Square, Users, Navigation, Play } from 'lucide-react';
-import { BUS_ROUTES } from '../data/mockData';
 import L from 'leaflet';
 import { useNavigate } from 'react-router-dom';
+
+const PRIMARY_BUTTON =
+  'bg-indigo-700 text-white font-bold py-3 px-6 rounded-full border border-indigo-700 shadow-sm hover:bg-indigo-800 transition-all';
 
 // Fix for default marker icons in React Leaflet
 import icon from 'leaflet/dist/images/marker-icon.png';
@@ -45,18 +47,18 @@ const InvalidateLeafletSize: React.FC = () => {
 };
 
 const Driver: React.FC = () => {
-  const { buses, userBusId, resumeTrip, stopTrip, reportEmergency, updateSeats, userRole } = useBus();
+  const { buses, routes, userBusId, resumeTrip, stopTrip, reportEmergency, updateSeats, userRole, authReady } = useBus();
   const [passengers, setPassengers] = useState(0);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!userRole) {
+    if (authReady && !userRole) {
       navigate('/');
     }
-  }, [userRole, navigate]);
+  }, [authReady, userRole, navigate]);
 
   const myBus = buses.find((b) => b.id === userBusId);
-  const myRoute = BUS_ROUTES.find((r) => r.id === myBus?.routeId);
+  const myRoute = routes.find((r) => r.id === myBus?.routeId);
 
   if (!myBus || !myRoute) return <div className="h-full flex items-center justify-center bg-slate-50 text-slate-500">Loading Bus System...</div>;
 
@@ -72,23 +74,23 @@ const Driver: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col relative font-sans bg-slate-50 p-6 gap-4">
-      <div className="bg-blue-600 text-white px-6 py-4 flex items-center justify-between shadow-sm z-10 rounded-xl">
+      <div className="bg-indigo-700 text-white px-6 py-4 flex items-center justify-between shadow-sm z-10 rounded-xl border border-slate-200">
         <div className="flex items-center gap-3">
-          <Navigation className="text-blue-200" size={24} />
+          <Navigation className="text-indigo-200" size={24} />
           <div>
-            <p className="text-xs text-blue-200 uppercase font-bold tracking-wider">Next Stop</p>
+            <p className="text-xs text-indigo-200 uppercase font-bold tracking-wider">Next Stop</p>
             <h1 className="text-xl font-bold leading-none">{nextStop?.name || 'End of Line'}</h1>
           </div>
         </div>
         <div className="text-right">
-           <p className="text-xs text-blue-200 uppercase font-bold tracking-wider">Status</p>
+           <p className="text-xs text-indigo-200 uppercase font-bold tracking-wider">Status</p>
            <p className="font-bold text-white">
              {myBus.status === 'moving' ? 'IN TRANSIT' : myBus.status.toUpperCase()}
            </p>
         </div>
       </div>
 
-      <div className="w-full max-w-md aspect-square mx-auto relative z-0 bg-white rounded-xl shadow-sm border border-slate-100 overflow-hidden">
+      <div className="w-full max-w-md aspect-square mx-auto relative z-0 bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <MapContainer center={myBus.location} zoom={16} style={{ height: '100%', width: '100%' }} zoomControl={false}>
           <TileLayer
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -100,7 +102,7 @@ const Driver: React.FC = () => {
           {myRoute.stops.map(stop => (
             <Marker key={stop.id} position={stop.location}>
               <Popup className="custom-popup">
-                <div className="font-bold text-gray-800">{stop.name}</div>
+                <div className="font-bold text-slate-800">{stop.name}</div>
               </Popup>
             </Marker>
           ))}
@@ -111,10 +113,10 @@ const Driver: React.FC = () => {
         </MapContainer>
       </div>
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-100 p-4 z-20 sticky bottom-0">
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4 z-20 sticky bottom-0">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-3 items-stretch">
-          <div className="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-lg border border-slate-200">
-            <Users className="text-blue-600" size={24} />
+          <div className="flex items-center gap-3 bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 shadow-sm">
+            <Users className="text-indigo-700" size={24} />
             <div>
               <div className="text-xl font-bold text-slate-800 leading-none">{passengers} / {myBus.capacity}</div>
               <div className="text-xs text-slate-500 font-bold uppercase">Seats Taken</div>
@@ -123,7 +125,7 @@ const Driver: React.FC = () => {
 
           <button 
             onClick={() => reportEmergency(myBus.id, 'breakdown')}
-            className="h-14 bg-yellow-400 hover:bg-yellow-500 text-yellow-900 rounded-lg px-4 py-2 font-medium text-lg flex items-center justify-center gap-2 shadow-sm transition-colors"
+            className={`${PRIMARY_BUTTON} h-14 bg-yellow-400 hover:bg-yellow-500 border-yellow-400 text-yellow-900 w-full flex items-center justify-center gap-2`}
           >
             <AlertTriangle size={24} />
             Report Issue
@@ -131,7 +133,7 @@ const Driver: React.FC = () => {
 
           <button 
             onClick={() => stopTrip(myBus.id)}
-            className="h-14 bg-red-600 hover:bg-red-700 text-white rounded-lg px-4 py-2 font-medium text-lg flex items-center justify-center gap-2 shadow-sm transition-colors"
+            className={`${PRIMARY_BUTTON} h-14 bg-red-600 hover:bg-red-700 border-red-600 w-full flex items-center justify-center gap-2`}
           >
             <Square size={24} fill="currentColor" />
             Stop
@@ -139,7 +141,7 @@ const Driver: React.FC = () => {
 
           <button 
             onClick={() => resumeTrip(myBus.id)}
-            className="h-14 bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 font-medium text-lg flex items-center justify-center gap-2 shadow-sm transition-colors"
+            className={`${PRIMARY_BUTTON} h-14 w-full flex items-center justify-center gap-2`}
           >
             <Play className="w-6 h-6 fill-current" />
             Resume Trip
@@ -150,10 +152,10 @@ const Driver: React.FC = () => {
       {/* Safety Modal - Only shows when at a stop */}
       {myBus.isAtStop && (
         <div className="absolute inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="bg-white rounded-2xl w-full max-w-sm p-8 shadow-2xl border border-slate-100 space-y-8 animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-2xl w-full max-w-sm p-8 shadow-sm border border-slate-200 space-y-8 animate-in fade-in zoom-in-95 duration-200">
             <div className="text-center">
-              <div className="bg-blue-100 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                <Navigation className="text-blue-600" size={32} />
+              <div className="bg-indigo-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <Navigation className="text-indigo-700" size={32} />
               </div>
               <h2 className="text-2xl font-bold text-slate-800">Arrived at Stop</h2>
               <p className="text-slate-500 text-lg">{nextStop?.name}</p>
@@ -162,17 +164,17 @@ const Driver: React.FC = () => {
             <div className="flex items-center justify-center gap-6">
               <button 
                 onClick={() => handleUpdateSeats(-1)}
-                className="w-16 h-16 rounded-xl bg-slate-100 hover:bg-slate-200 flex items-center justify-center text-slate-700 font-bold text-3xl transition-colors"
+                className={`${PRIMARY_BUTTON} w-16 h-16 px-0 py-0 bg-slate-100 hover:bg-slate-200 text-slate-800 flex items-center justify-center text-3xl`}
               >
                 -
               </button>
-              <div className="text-center min-w-[80px]">
+              <div className="text-center min-w-20">
                 <div className="text-4xl font-bold text-slate-800 tabular-nums">{passengers}</div>
                 <div className="text-xs text-slate-500 uppercase font-bold mt-1">On Board</div>
               </div>
               <button 
                 onClick={() => handleUpdateSeats(1)}
-                className="w-16 h-16 rounded-xl bg-blue-600 hover:bg-blue-700 flex items-center justify-center text-white font-bold text-3xl transition-colors"
+                className={`${PRIMARY_BUTTON} w-16 h-16 px-0 py-0 flex items-center justify-center text-3xl`}
               >
                 +
               </button>
@@ -180,7 +182,7 @@ const Driver: React.FC = () => {
 
             <button 
               onClick={handleDepart}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white px-4 py-3 rounded-lg font-medium text-xl flex items-center justify-center gap-2 transition-colors shadow-sm"
+              className={`${PRIMARY_BUTTON} w-full flex items-center justify-center gap-2 text-xl`}
             >
               <span>Depart Station</span>
               <Play className="w-5 h-5 fill-current" />

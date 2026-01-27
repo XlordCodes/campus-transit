@@ -1,8 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { BUS_ROUTES } from '../data/mockData';
 import { getDistance } from '../utils/geo';
-import type { Bus, UserRole, Alert } from '../types';
+import type { Bus, UserRole, Alert, BusRoute } from '../types';
 import { BusContext } from './BusContext';
+import { auth, isFirebaseConfigured } from '../lib/firebase';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
+import type { User } from 'firebase/auth';
 
 // Initial State Setup
 const INITIAL_BUSES: Bus[] = BUS_ROUTES.map((route, index) => ({
@@ -20,27 +23,34 @@ const INITIAL_BUSES: Bus[] = BUS_ROUTES.map((route, index) => ({
 
 const SPEED_MPS = 20; // Meters per second (simulation speed)
 
+const deriveRoleFromEmail = (email: string | null | undefined): UserRole => {
+  if (!email) return null;
+  const lower = email.toLowerCase();
+  if (lower.includes('admin')) return 'admin';
+  if (lower.includes('driver')) return 'driver';
+  return 'student';
+};
+
 export const BusProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [buses, setBuses] = useState<Bus[]>(INITIAL_BUSES);
-  
-  // Persist userRole in localStorage
-  const [userRole, setUserRole] = useState<UserRole>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('userRole') as UserRole) || null;
-    }
-    return null;
-  });
+  const [routes, setRoutes] = useState<BusRoute[]>(BUS_ROUTES);
+  const [userRole, setUserRole] = useState<UserRole>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [authReady, setAuthReady] = useState<boolean>(!auth);
 
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const userBusId = 'bus-red'; // The user drives the Red bus
+  const firebaseEnabled = Boolean(auth && isFirebaseConfigured);
 
   useEffect(() => {
-    if (userRole) {
-      localStorage.setItem('userRole', userRole);
-    } else {
-      localStorage.removeItem('userRole');
-    }
-  }, [userRole]);
+    if (!firebaseEnabled || !auth) return;
+    const unsub = onAuthStateChanged(auth, (nextUser) => {
+      setUser(nextUser);
+      setUserRole(deriveRoleFromEmail(nextUser?.email));
+      setAuthReady(true);
+    });
+    return () => unsub();
+  }, [firebaseEnabled]);
 
   // Simulation Loop
   useEffect(() => {
@@ -59,7 +69,7 @@ export const BusProvider: React.FC<{ children: React.ReactNode }> = ({ children 
              // Only apply to ghosts that are NOT broken down
              if (!isMyBus) {
                if (Math.random() > 0.95) { // 5% chance per second to resume
-                 const route = BUS_ROUTES.find((r) => r.id === bus.routeId);
+                 const route = routes.find((r) => r.id === bus.routeId);
                  // If at stop, advance index
                  const nextStopIdx = bus.isAtStop && route 
                     ? (bus.nextStopIdx + 1) % route.stops.length 
@@ -76,7 +86,7 @@ export const BusProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           // No, usually 'stopped' status implies dwelling.
 
           // 2. Move Bus
-          const route = BUS_ROUTES.find((r) => r.id === bus.routeId);
+          const route = routes.find((r) => r.id === bus.routeId);
           if (!route) return bus;
 
           const path = route.path;
@@ -126,6 +136,7 @@ export const BusProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             );
 
             if (distToStop < 50) { // 50m radius
+              newLocation = targetStop.location;
               newIsAtStop = true;
               newStatus = 'stopped';
             }
@@ -145,7 +156,7 @@ export const BusProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [userRole, userBusId]);
+  }, [userRole, userBusId, routes]);
 
   // Actions
   const startTrip = (busId: string) => {
@@ -155,7 +166,7 @@ export const BusProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         // If at a stop, we need to advance to next stop to avoid getting stuck in radius
         if (b.isAtStop) {
-           const route = BUS_ROUTES.find((r) => r.id === b.routeId);
+           const route = routes.find((r) => r.id === b.routeId);
            const nextStopIdx = route ? (b.nextStopIdx + 1) % route.stops.length : b.nextStopIdx;
            return { ...b, status: 'moving', isAtStop: false, nextStopIdx };
         }
@@ -200,18 +211,40 @@ export const BusProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setAlerts((prev) => [newAlert, ...prev]);
   };
 
+  const addRoute = (route: BusRoute) => {
+    setRoutes((prev) => [...prev, route]);
+  };
+
+  const signIn = async (email: string, password: string) => {
+    if (!auth) throw new Error('Firebase Auth is not configured.');
+    await signInWithEmailAndPassword(auth, email, password);
+    setUserRole(deriveRoleFromEmail(email));
+  };
+
+  const signOut = async () => {
+    if (auth) await firebaseSignOut(auth);
+    setUser(null);
+    setUserRole(null);
+  };
+
   return (
     <BusContext.Provider
       value={{
         buses,
+        routes,
         userRole,
-        setUserRole,
+        user,
+        authReady,
+        firebaseEnabled,
         alerts,
         startTrip,
         stopTrip,
         updateSeats,
         reportEmergency,
         resumeTrip,
+        addRoute,
+        signIn,
+        signOut,
         userBusId,
       }}
     >

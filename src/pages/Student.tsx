@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useBus } from '../context/BusContext';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
-import { BUS_ROUTES } from '../data/mockData';
 import { Users, Clock } from 'lucide-react';
 import { getDistance } from '../utils/geo';
 import L from 'leaflet';
@@ -35,10 +34,10 @@ const InvalidateLeafletSize: React.FC = () => {
 };
 
 const Student: React.FC = () => {
-  const { buses } = useBus();
+  const { buses, routes } = useBus();
   const [selectedRouteId, setSelectedRouteId] = useState<string>('route-red');
 
-  const selectedRoute = BUS_ROUTES.find(r => r.id === selectedRouteId);
+  const selectedRoute = routes.find(r => r.id === selectedRouteId);
   const selectedBus = buses.find(b => b.routeId === selectedRouteId);
 
   // Helper to estimate arrival time
@@ -59,27 +58,31 @@ const Student: React.FC = () => {
         </div>
         
         <div className="p-4 space-y-3">
-          {BUS_ROUTES.map(route => {
+          {routes.map(route => {
             const bus = buses.find(b => b.routeId === route.id);
             return (
               <button
                 key={route.id}
                 onClick={() => setSelectedRouteId(route.id)}
                 className={`w-full text-left p-4 rounded-xl border transition-all hover:bg-slate-50
-                  ${selectedRouteId === route.id ? 'border-blue-600 bg-blue-50' : 'border-slate-200 bg-white'}
+                  ${selectedRouteId === route.id ? 'border-indigo-700 bg-indigo-50' : 'border-slate-200 bg-white'}
                 `}
               >
                 <div className="flex items-center justify-between mb-2">
                   <span className="font-bold text-slate-800">{route.name}</span>
                   {bus?.status === 'moving' ? (
-                    <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold">On Time</span>
+                    <span className="bg-teal-50 text-teal-700 text-xs px-2 py-1 rounded-full font-bold">On Time</span>
+                  ) : bus?.status === 'delayed' ? (
+                    <span className="bg-rose-50 text-rose-600 text-xs px-2 py-1 rounded-full font-bold">Delayed</span>
+                  ) : bus?.status === 'breakdown' ? (
+                    <span className="bg-rose-50 text-rose-600 text-xs px-2 py-1 rounded-full font-bold">Breakdown</span>
                   ) : (
-                    <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-1 rounded-full font-bold">Station</span>
+                    <span className="bg-slate-100 text-slate-700 text-xs px-2 py-1 rounded-full font-bold">Station</span>
                   )}
                 </div>
                 
                 <div className="flex items-center gap-2 text-slate-500 text-sm">
-                  <Users size={16} className="text-blue-600" />
+                  <Users size={16} className="text-indigo-700" />
                   <span>{bus?.seatsAvailable || 0} seats left</span>
                 </div>
               </button>
@@ -92,7 +95,7 @@ const Student: React.FC = () => {
       <div className="flex-1 flex flex-col h-full overflow-y-auto p-6 gap-6 bg-slate-50">
         
         {/* Top Section: Map */}
-        <div className="bg-white rounded-xl shadow-sm p-4 h-96 shrink-0 border border-slate-100 relative z-0">
+        <div className="bg-white rounded-xl shadow-sm p-4 h-96 shrink-0 border border-slate-200 relative z-0">
           {selectedRoute ? (
             <MapContainer 
               key={selectedRoute.id}
@@ -111,7 +114,7 @@ const Student: React.FC = () => {
               {selectedRoute.stops.map(stop => (
                  <Marker key={stop.id} position={stop.location}>
                    <Popup className="custom-popup">
-                     <div className="font-bold text-gray-800">{stop.name}</div>
+                     <div className="font-bold text-slate-800">{stop.name}</div>
                    </Popup>
                  </Marker>
               ))}
