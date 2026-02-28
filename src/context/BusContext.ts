@@ -1,6 +1,9 @@
 import { createContext, useContext } from 'react';
 import type { Bus, UserRole, Alert, BusRoute } from '../types';
-import type { User } from 'firebase/auth';
+
+interface User {
+  email: string | null;
+}
 
 interface BusContextType {
   buses: Bus[];
@@ -8,7 +11,6 @@ interface BusContextType {
   userRole: UserRole;
   user: User | null;
   authReady: boolean;
-  firebaseEnabled: boolean;
   alerts: Alert[];
   startTrip: (busId: string) => void;
   updateSeats: (busId: string, count: number) => void;

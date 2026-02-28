@@ -1,8 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bus, GraduationCap, ShieldCheck, X } from 'lucide-react';
-import { signInWithEmailAndPassword, signOut } from 'firebase/auth';
-import { auth, isFirebaseConfigured } from '../lib/firebase';
+import { useBus } from '../context/BusContext';
 
 type PortalRole = 'student' | 'driver' | 'admin';
 
@@ -21,6 +20,7 @@ const roleToLabel = (role: PortalRole) => {
 
 const Login: React.FC = () => {
   const navigate = useNavigate();
+  const { signIn: authSignIn } = useBus();
   const [activeRole, setActiveRole] = useState<PortalRole | null>(null);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -53,18 +53,14 @@ const Login: React.FC = () => {
     if (!activeRole) return;
     setError(null);
 
-    if (!isFirebaseConfigured || !auth) {
-      setError('Firebase is not configured.');
-      return;
-    }
-
     setSubmitting(true);
     try {
       const normalizedEmail = email.trim();
-      await signInWithEmailAndPassword(auth, normalizedEmail, password);
+      
+      // Use simple authentication from BusProvider
+      await authSignIn(normalizedEmail, password);
 
       if (!isRoleAllowed(activeRole, normalizedEmail)) {
-        await signOut(auth);
         if (activeRole === 'driver') {
           setError('Access Denied: Not a Driver account.');
         } else if (activeRole === 'admin') {
@@ -110,7 +106,7 @@ const Login: React.FC = () => {
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-60" />
                 <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-400" />
               </span>
-              <span className="text-white/90 text-sm font-semibold">🟢 System Online</span>
+              <span className="text-white/90 text-sm font-semibold"> System Online</span>
             </div>
           </div>
         </div>
@@ -138,76 +134,70 @@ const Login: React.FC = () => {
                   onClick={() => openModal('admin')}
                 />
               </div>
+            </div>
+          </div>
+        </div>
 
-              {!isFirebaseConfigured && (
-                <div className="mt-6 rounded-xl border border-rose-400/30 bg-rose-500/10 px-4 py-3 text-sm text-rose-200 backdrop-blur-xl">
-                  Firebase is not configured. Add VITE_FIREBASE_* env vars to enable sign-in.
+        {activeRole && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
+            <button type="button" className="absolute inset-0 bg-slate-950/60" onClick={closeModal} aria-label="Close" />
+
+            <div className="relative w-full max-w-md rounded-2xl border border-white/15 bg-white/8 shadow-2xl backdrop-blur-2xl p-6">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h2 className="text-xl font-bold text-white">{modalTitle}</h2>
+                  <p className="text-sm text-white/70 mt-1">Enter your email and password to continue.</p>
                 </div>
-              )}
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="p-2 rounded-full border border-white/15 bg-white/5 hover:bg-white/15 transition-colors"
+                  aria-label="Close"
+                >
+                  <X size={18} className="text-white/80" />
+                </button>
+              </div>
+
+              <form className="mt-6 space-y-4" onSubmit={handleSignIn}>
+                <div>
+                  <label className="block text-sm font-semibold text-white/80 mb-1">Email</label>
+                  <input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    type="email"
+                    autoComplete="email"
+                    required
+                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-white/20"
+                    placeholder="name@university.edu"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-white/80 mb-1">Password</label>
+                  <input
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    type="password"
+                    autoComplete="current-password"
+                    required
+                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-white/20"
+                  />
+                </div>
+
+                {error && <p className="text-sm font-semibold text-rose-300">{error}</p>}
+
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-3 px-6 rounded-full shadow-sm border border-indigo-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {submitting ? 'Signing In…' : 'Sign In'}
+                </button>
+              </form>
             </div>
           </div>
-        </div>
+        )}
       </div>
-
-      {activeRole && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-6">
-          <button type="button" className="absolute inset-0 bg-slate-950/60" onClick={closeModal} aria-label="Close" />
-
-          <div className="relative w-full max-w-md rounded-2xl border border-white/15 bg-white/8 shadow-2xl backdrop-blur-2xl p-6">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-xl font-bold text-white">{modalTitle}</h2>
-                <p className="text-sm text-white/70 mt-1">Enter your email and password to continue.</p>
-              </div>
-              <button
-                type="button"
-                onClick={closeModal}
-                className="p-2 rounded-full border border-white/15 bg-white/5 hover:bg-white/15 transition-colors"
-                aria-label="Close"
-              >
-                <X size={18} className="text-white/80" />
-              </button>
-            </div>
-
-            <form className="mt-6 space-y-4" onSubmit={handleSignIn}>
-              <div>
-                <label className="block text-sm font-semibold text-white/80 mb-1">Email</label>
-                <input
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  type="email"
-                  autoComplete="email"
-                  required
-                  className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-white/20"
-                  placeholder="name@university.edu"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-white/80 mb-1">Password</label>
-                <input
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  type="password"
-                  autoComplete="current-password"
-                  required
-                  className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 text-white placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-indigo-200 focus:border-white/20"
-                />
-              </div>
-
-              {error && <p className="text-sm font-semibold text-rose-300">{error}</p>}
-
-              <button
-                type="submit"
-                disabled={submitting}
-                className="w-full bg-indigo-700 hover:bg-indigo-600 text-white font-bold py-3 px-6 rounded-full shadow-sm border border-indigo-500/40 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {submitting ? 'Signing In…' : 'Sign In'}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

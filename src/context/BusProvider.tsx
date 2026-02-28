@@ -3,9 +3,10 @@ import { BUS_ROUTES } from '../data/mockData';
 import { getDistance } from '../utils/geo';
 import type { Bus, UserRole, Alert, BusRoute } from '../types';
 import { BusContext } from './BusContext';
-import { auth, isFirebaseConfigured } from '../lib/firebase';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut as firebaseSignOut } from 'firebase/auth';
-import type { User } from 'firebase/auth';
+
+interface User {
+  email: string | null;
+}
 
 // Initial State Setup
 const INITIAL_BUSES: Bus[] = BUS_ROUTES.map((route, index) => ({
@@ -36,21 +37,10 @@ export const BusProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [routes, setRoutes] = useState<BusRoute[]>(BUS_ROUTES);
   const [userRole, setUserRole] = useState<UserRole>(null);
   const [user, setUser] = useState<User | null>(null);
-  const [authReady, setAuthReady] = useState<boolean>(!auth);
+  const authReady = true;
 
   const [alerts, setAlerts] = useState<Alert[]>([]);
   const userBusId = 'bus-red'; // The user drives the Red bus
-  const firebaseEnabled = Boolean(auth && isFirebaseConfigured);
-
-  useEffect(() => {
-    if (!firebaseEnabled || !auth) return;
-    const unsub = onAuthStateChanged(auth, (nextUser) => {
-      setUser(nextUser);
-      setUserRole(deriveRoleFromEmail(nextUser?.email));
-      setAuthReady(true);
-    });
-    return () => unsub();
-  }, [firebaseEnabled]);
 
   // Simulation Loop
   useEffect(() => {
@@ -216,13 +206,24 @@ export const BusProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const signIn = async (email: string, password: string) => {
-    if (!auth) throw new Error('Firebase Auth is not configured.');
-    await signInWithEmailAndPassword(auth, email, password);
-    setUserRole(deriveRoleFromEmail(email));
+    // Simple authentication logic
+    const normalizedEmail = email.trim().toLowerCase();
+    
+    // Check if user exists in valid users or derive role from email
+    const derivedRole = deriveRoleFromEmail(normalizedEmail);
+    
+    // For demo purposes, accept any password that matches pattern or is valid
+    // In production, you would validate against a backend
+    if (password.length < 3) {
+      throw new Error('Invalid password. Password must be at least 3 characters.');
+    }
+    
+    // Set the user and role
+    setUser({ email: normalizedEmail });
+    setUserRole(derivedRole);
   };
 
   const signOut = async () => {
-    if (auth) await firebaseSignOut(auth);
     setUser(null);
     setUserRole(null);
   };
@@ -235,7 +236,6 @@ export const BusProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userRole,
         user,
         authReady,
-        firebaseEnabled,
         alerts,
         startTrip,
         stopTrip,
