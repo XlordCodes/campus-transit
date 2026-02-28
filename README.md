@@ -106,4 +106,4 @@ src/
 
 ## License
 
-MIT
+Free-to-use
